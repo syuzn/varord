@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="hy">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#0f172a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Varord</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<style>
+  :root{--green:#16a34a;--red:#dc2626;--amber:#f59e0b;--blue:#2563eb;--panel:rgba(15,23,42,.9);--safe-t:env(safe-area-inset-top,0px);--safe-b:env(safe-area-inset-bottom,0px)}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;background:#0f172a;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#fff;overflow:hidden}
+  #map{position:fixed;inset:0;transition:all .3s}
+  #cam{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;display:none;background:#000}
+  body.camera #cam{display:block}
+  body.camera #map{inset:auto 12px calc(150px + var(--safe-b)) auto;width:38vw;height:30vh;max-width:220px;border-radius:16px;overflow:hidden;border:2px solid #fff;z-index:3}
+  .panel{background:var(--panel);border-radius:18px;backdrop-filter:blur(6px)}
+  button{font:inherit;color:inherit;cursor:pointer;border:0}
+  .btn{background:var(--panel);border:1px solid rgba(255,255,255,.15);border-radius:999px;padding:10px 14px;font-size:14px;font-weight:600}
+  .btn.primary{background:var(--blue);border-color:var(--blue)}
+  .btn.danger{background:var(--red);border-color:var(--red)}
+  /* search screen */
+  #search{position:fixed;top:calc(12px + var(--safe-t));left:12px;right:12px;z-index:5;padding:10px;display:flex;flex-direction:column;gap:8px}
+  #search form{display:flex;gap:8px}
+  #q{flex:1;min-width:0;background:#1e293b;border:1px solid #334155;color:#fff;border-radius:12px;padding:12px;font-size:16px}
+  #results{display:flex;flex-direction:column;gap:4px;max-height:40vh;overflow:auto}
+  #results button{text-align:left;background:#1e293b;padding:10px 12px;border-radius:10px;font-size:14px}
+  #results small{display:block;opacity:.6;font-size:12px}
+  .hint{font-size:13px;opacity:.75;padding:0 4px}
+  /* nav */
+  #nav{position:fixed;top:calc(12px + var(--safe-t));left:12px;right:12px;z-index:5;padding:12px 14px;display:none;align-items:center;gap:12px}
+  body.navigating #nav{display:flex} body.navigating #search{display:none}
+  #nav svg{width:56px;height:56px;flex:none}
+  #ndist{font-size:30px;font-weight:800;line-height:1}
+  #ntext{font-size:15px;opacity:.85;margin-top:4px}
+  #badge{position:fixed;left:50%;top:calc(110px + var(--safe-t));transform:translateX(-50%) scale(.9);opacity:0;pointer-events:none;transition:.3s;z-index:5;
+    border-radius:20px;padding:12px 18px;display:flex;align-items:center;gap:12px;width:max-content;max-width:calc(100% - 24px);box-shadow:0 10px 30px rgba(0,0,0,.45)}
+  #badge.show{opacity:1;transform:translateX(-50%) scale(1)}
+  #badge svg{width:48px;height:48px;flex:none}
+  #bt{font-size:22px;font-weight:900}#bs{font-size:14px;margin-top:2px}#bd{font-size:13px;opacity:.9;margin-top:2px;font-weight:700}
+  /* AR arrow on camera */
+  #ar{position:fixed;left:50%;bottom:22vh;width:200px;height:200px;margin-left:-100px;display:none;z-index:2;transform:perspective(500px) rotateX(55deg);filter:drop-shadow(0 6px 10px rgba(0,0,0,.5))}
+  body.camera.navigating #ar{display:block}
+  /* bottom */
+  #bottom{position:fixed;left:12px;right:12px;bottom:calc(12px + var(--safe-b));z-index:5;display:flex;flex-direction:column;gap:8px;align-items:center}
+  .row{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;align-items:center}
+  .langs{display:flex;gap:3px;padding:3px;border-radius:999px;background:var(--panel)}
+  .langs button{background:none;font-size:13px;font-weight:700;padding:7px 10px;border-radius:999px;opacity:.7}
+  .langs button.on{background:#fff;color:#0f172a;opacity:1}
+  #speed{position:fixed;left:12px;bottom:calc(120px + var(--safe-b));width:66px;height:66px;border-radius:50%;display:none;flex-direction:column;align-items:center;justify-content:center;z-index:5}
+  body.navigating #speed{display:flex}
+  #speed b{font-size:22px}#speed span{font-size:11px;opacity:.7}
+  .nav-only{display:none} body.navigating .nav-only{display:inline-block} body.navigating .search-only{display:none}
+  #note{font-size:11px;opacity:.75;text-align:center;background:rgba(0,0,0,.45);padding:4px 10px;border-radius:8px}
+  #toast{position:fixed;left:50%;bottom:calc(150px + var(--safe-b));transform:translateX(-50%);background:#111827;padding:10px 14px;border-radius:12px;font-size:14px;z-index:9;display:none;max-width:90%;text-align:center}
+  .car{width:34px;height:34px}
+  .sign{width:26px;height:26px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.5))}
+  body.navigating .maplibregl-ctrl-group{display:none}
+  .maplibregl-ctrl-bottom-right,.maplibregl-ctrl-bottom-left{bottom:auto;top:calc(80px + var(--safe-t))}
+</style>
+</head>
+<body>
+<video id="cam" autoplay playsinline muted></video>
+<div id="map"></div>
+
+<div id="search" class="panel">
+  <form id="sf"><input id="q" autocomplete="off"><button class="btn primary" id="sbtn"></button></form>
+  <div class="hint" id="hint"></div>
+  <div id="results"></div>
+</div>
+
+<div id="nav" class="panel">
+  <svg id="nicon" viewBox="0 0 60 60"></svg>
+  <div><div id="ndist">—</div><div id="ntext"></div></div>
+</div>
+
+<div id="badge"><svg id="bicon" viewBox="0 0 54 54"></svg><div><div id="bt"></div><div id="bs"></div><div id="bd"></div></div></div>
+<svg id="ar" viewBox="0 0 60 60"></svg>
+<div id="speed" class="panel"><b id="spd">0</b><span id="kmh"></span></div>
+<div id="toast"></div>
+
+<div id="bottom">
+  <div class="row">
+    <button class="btn primary search-only" id="go" style="display:none"></button>
+    <button class="btn search-only" id="sim" style="display:none"></button>
+    <button class="btn nav-only" id="camBtn"></button>
+    <button class="btn" id="voice"></button>
+    <button class="btn danger nav-only" id="stop"></button>
+  </div>
+  <div class="row">
+    <div class="langs" id="langs"><button data-l="hy">ՀԱՅ</button><button data-l="ru">РУС</button><button data-l="en">ENG</button></div>
+  </div>
+  <div id="note"></div>
+</div>
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
