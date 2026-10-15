@@ -50,6 +50,9 @@ Object.assign(I18N.ru,{car:'🚗 Авто',foot:'🚶 Пешком',fast:'Сам
 Object.assign(I18N.en,{car:'🚗 Car',foot:'🚶 Walk',fast:'Fastest',easy:'Easy — for new drivers',lefts:n=>`${n} left turn(s)`,min:'min',h:'h',
   arriveAt:t=>`Arrive at ${t}`,home:'🏠 Home',work:'💼 Work',saved:'Saved',pickFirst:'Pick a place first, then tap to save it',
   share:'📤 Share',shareText:t=>`I'm on my way, arriving around ${t}`,copied:'Copied',walkNote:'Use the sidewalk and cross only at crosswalks'});
+Object.assign(I18N.hy,{vf:'🔊 Կին',vm:'🔊 Տղամարդ',sample:'Բարև։ Ես քո ճանապարհի ընկերն եմ։'});
+Object.assign(I18N.ru,{vf:'🔊 Женский',vm:'🔊 Мужской',sample:'Привет! Я ваш помощник в дороге.'});
+Object.assign(I18N.en,{vf:'🔊 Female',vm:'🔊 Male',sample:'Hi! I am your driving buddy.'});
 const COUNTRIES='ru,ge,by,kz,uz,am';
 let lang='hy';try{lang=localStorage.getItem('lang')||'hy'}catch(e){}
 if(!I18N[lang])lang='hy';
@@ -86,7 +89,7 @@ map.on('load',()=>{
 });
 
 // ---------- state ----------
-let me=null,dest=null,destMarker=null,route=null,nav=null,watchId=null,simTimer=null,voiceOn=true,camStream=null;
+let me=null,dest=null,destMarker=null,route=null,nav=null,watchId=null,simTimer=null,camStream=null;
 let carMarker=null,signMarkers=[];
 function toast(t,ms=2500){const e=$('toast');e.textContent=t;e.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display='none',ms)}
 
@@ -95,18 +98,34 @@ function render(){
   const t=L();document.documentElement.lang=lang;
   $('q').placeholder=t.where;$('sbtn').textContent=t.search;$('hint').textContent=t.hint;$('go').textContent=t.go;$('sim').textContent=t.sim;
   $('stop').textContent=t.stop;$('camBtn').textContent=document.body.classList.contains('camera')?t.map:t.cam;
-  $('voice').textContent=voiceOn?t.von:t.voff;$('kmh').textContent=t.kmh;$('note').textContent=(mode==='foot'?t.walkNote:t.note)+' · © OpenStreetMap, OpenFreeMap';
+  $('voice').textContent=voiceSex==='off'?t.voff:(voiceSex==='m'?t.vm:t.vf);$('kmh').textContent=t.kmh;$('note').textContent=(mode==='foot'?t.walkNote:t.note)+' · © OpenStreetMap, OpenFreeMap';
   [...$('langs').children].forEach(b=>b.classList.toggle('on',b.dataset.l===lang));
   $('mCar').textContent=t.car;$('mFoot').textContent=t.foot;$('mCar').classList.toggle('on',mode==='car');$('mFoot').classList.toggle('on',mode==='foot');$('share').textContent=t.share;
   document.body.classList.toggle('walk',mode==='foot');renderPlaces();renderRoutes();
   localizeLabels();if(nav)updateNav(true);
 }
 [...$('langs').children].forEach(b=>b.onclick=()=>{lang=b.dataset.l;try{localStorage.setItem('lang',lang)}catch(e){}speechSynthesis.cancel();render()});
-$('voice').onclick=()=>{voiceOn=!voiceOn;if(!voiceOn)speechSynthesis.cancel();render()};
+$('voice').onclick=()=>{voiceSex={f:'m',m:'off',off:'f'}[voiceSex];try{localStorage.setItem('voiceSex',voiceSex)}catch(e){}speechSynthesis.cancel();render();if(voiceSex!=='off')say(L().sample)};
 
 // ---------- voice ----------
-function pickVoice(){const p=L().voice.slice(0,2);return speechSynthesis.getVoices().find(v=>v.lang.toLowerCase().startsWith(p))}
-function say(text){if(!voiceOn||!('speechSynthesis' in window))return;const u=new SpeechSynthesisUtterance(text);u.lang=L().voice;const v=pickVoice();if(v)u.voice=v;speechSynthesis.cancel();speechSynthesis.speak(u)}
+// voice: 'f' (female), 'm' (male) or 'off'; picks the most natural voice the device has
+let voiceSex='f';try{voiceSex=localStorage.getItem('voiceSex')||'f'}catch(e){}
+const FEMALE=/anahit|svetlana|dariya|darya|milena|katya|irina|elena|alena|alyona|marina|polina|jenny|aria|ava|samantha|allison|susan|zira|karen|moira|tessa|serena|emma|sonia|libby|michelle|natasha|female|woman|ruf|ruc/i;
+const MALE=/hayk|dmitry|dmitri|pavel|yuri|yury|maxim|guy|davis|daniel|alex\b|tom\b|fred|david|mark|ryan|eric|christopher|andrew|brian|roger|male|\bman\b|rud|rue/i;
+function voiceScore(v){let s=0;const n=v.name;
+  if(/natural|neural|online/i.test(n))s+=6;if(/premium|enhanced|siri/i.test(n))s+=5;if(/google/i.test(n))s+=3;
+  if(/compact|espeak|eloquence|novelty/i.test(n))s-=6;if(!v.localService)s+=1;return s}
+function pickVoice(sex){
+  const p=L().voice.slice(0,2),all=speechSynthesis.getVoices().filter(v=>v.lang.toLowerCase().replace('_','-').startsWith(p));
+  if(!all.length)return null;
+  const want=sex||voiceSex,re=want==='m'?MALE:FEMALE,other=want==='m'?FEMALE:MALE;
+  const pool=all.filter(v=>re.test(v.name)&&!other.test(v.name));
+  return (pool.length?pool:all).slice().sort((a,b)=>voiceScore(b)-voiceScore(a))[0];
+}
+function say(text){
+  if(voiceSex==='off'||!('speechSynthesis' in window))return;
+  const u=new SpeechSynthesisUtterance(text);u.lang=L().voice;const v=pickVoice();if(v)u.voice=v;
+  u.rate=0.95;u.pitch=voiceSex==='m'?0.95:1.05;speechSynthesis.cancel();speechSynthesis.speak(u)}
 
 // ---------- location ----------
 function locateOnce(){
