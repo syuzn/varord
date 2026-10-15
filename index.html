@@ -61,6 +61,18 @@
   .car{width:34px;height:34px}
   .sign{width:26px;height:26px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.5))}
   body.navigating .maplibregl-ctrl-group{display:none}
+  #trial{background:#7c3aed;padding:5px 12px;border-radius:999px;font-size:12px;font-weight:700;z-index:4;cursor:pointer;display:none;white-space:nowrap}
+  body.navigating #trial{display:none!important}
+  #paywall{position:fixed;inset:0;background:rgba(2,6,23,.75);z-index:20;display:none;align-items:center;justify-content:center;padding:16px}
+  #paywall.show{display:flex}
+  .pw{width:100%;max-width:420px;padding:20px;display:flex;flex-direction:column;gap:12px;max-height:100%;overflow:auto}
+  .pw h2{font-size:22px}.pw p{font-size:14px;opacity:.85}
+  .plan{display:flex;justify-content:space-between;align-items:center;gap:10px;background:#1e293b;border:2px solid #334155;border-radius:14px;padding:14px;text-align:left;width:100%}
+  .plan.best{border-color:#7c3aed;background:#2e1065}
+  .plan b{font-size:16px}.plan small{display:block;opacity:.7;font-size:12px;margin-top:2px}
+  .plan .pr{font-size:18px;font-weight:800;white-space:nowrap}
+  .tag{display:inline-block;background:#7c3aed;font-size:11px;padding:2px 8px;border-radius:999px;margin-left:6px;vertical-align:middle}
+  .pwnote{font-size:12px!important;opacity:.65!important}
   .maplibregl-ctrl-bottom-right,.maplibregl-ctrl-bottom-left{bottom:auto;top:calc(80px + var(--safe-t))}
 </style>
 </head>
@@ -84,7 +96,15 @@
 <div id="speed" class="panel"><b id="spd">0</b><span id="kmh"></span></div>
 <div id="toast"></div>
 
+<div id="paywall"><div class="pw panel">
+  <h2 id="pwT"></h2><p id="pwS"></p>
+  <div id="plans"></div>
+  <p id="pwNote" class="pwnote"></p>
+  <button class="btn" id="pwClose"></button>
+</div></div>
+
 <div id="bottom">
+  <div id="trial"></div>
   <div class="row">
     <button class="btn primary search-only" id="go" style="display:none"></button>
     <button class="btn search-only" id="sim" style="display:none"></button>

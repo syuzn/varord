@@ -227,7 +227,7 @@ function startNav(sim){
   if(!carMarker){const el=document.createElement('div');el.innerHTML='<svg class="car" viewBox="0 0 40 40"><path d="M20 3 34 35 20 28 6 35z" fill="#2563eb" stroke="#fff" stroke-width="3" stroke-linejoin="round"/></svg>';
     carMarker=new maplibregl.Marker({element:el,rotationAlignment:'map',pitchAlignment:'map'}).setLngLat(route.coords[0]).addTo(map)}
   if(sim)runSim();else watchId=navigator.geolocation.watchPosition(p=>onPos([p.coords.longitude,p.coords.latitude],p.coords.speed,p.coords.heading),()=>toast(L().noGps),{enableHighAccuracy:true,maximumAge:1000});
-  try{navigator.wakeLock&&navigator.wakeLock.request('screen').then(l=>nav.lock=l)}catch(e){}
+  try{navigator.wakeLock&&navigator.wakeLock.request('screen').then(l=>{if(nav)nav.lock=l}).catch(()=>{})}catch(e){}
   render();
 }
 function stopNav(){
@@ -295,6 +295,50 @@ async function setCamera(on){
   setTimeout(()=>map.resize(),350);render();
 }
 $('camBtn').onclick=()=>setCamera(!document.body.classList.contains('camera'));
+
+// ---------- trial & plans ----------
+// 3 free days from the first launch, then a paid plan is needed to start navigation.
+// NOTE: stored on the device only; real protection needs a server + payment provider.
+const TRIAL_DAYS=3,DAY=864e5;
+const PRICES={ // month / 3 months / year
+  RUB:{s:'₽',p:[299,699,1990]},AMD:{s:'֏',p:[1490,3490,9900]},KZT:{s:'₸',p:[1790,3990,11900]},
+  BYN:{s:'BYN',p:[11,25,69]},GEL:{s:'₾',p:[9,19,55]},UZS:{s:"so'm",p:[45000,99000,290000]},USD:{s:'$',p:[3.99,8.99,19.99]}};
+const TZ_CUR={'Asia/Yerevan':'AMD','Europe/Minsk':'BYN','Asia/Tbilisi':'GEL','Asia/Tashkent':'UZS','Asia/Samarkand':'UZS'};
+function currency(){let tz='';try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||''}catch(e){}
+  if(TZ_CUR[tz])return TZ_CUR[tz];if(/^Asia\/(Almaty|Aqtobe|Aqtau|Atyrau|Oral|Qostanay|Qyzylorda)$/.test(tz))return 'KZT';
+  if(/^(Europe\/(Moscow|Kaliningrad|Samara|Volgograd|Saratov|Ulyanovsk|Astrakhan|Kirov)|Asia\/(Yekaterinburg|Omsk|Novosibirsk|Barnaul|Tomsk|Novokuznetsk|Krasnoyarsk|Irkutsk|Chita|Yakutsk|Khandyga|Vladivostok|Ust-Nera|Magadan|Sakhalin|Srednekolymsk|Kamchatka|Anadyr))$/.test(tz))return 'RUB';
+  return 'USD'}
+const PW={
+  hy:{left:d=>`Անվճար՝ ևս ${d} օր`,over:'Անվճար շրջանն ավարտվել է',t:'Շարունակիր Varord-ով',s:'3 անվճար օրն ավարտվեց։ Ընտրիր փաթեթը՝ շարունակելու համար։',
+      plans:[['1 ամիս',''],['3 ամիս','Ամենահարմարը նոր վարորդի համար'],['1 տարի','Ամենաշահավետը']],best:'Լավագույն',per:'ամիսը',
+      soon:'Վճարումը շուտով կմիանա։',note:'Ցանկացած պահի կարող ես չեղարկել։',close:'Փակել'},
+  ru:{left:d=>`Бесплатно: ещё ${d} дн.`,over:'Пробный период закончился',t:'Продолжайте с Varord',s:'3 бесплатных дня закончились. Выберите тариф, чтобы продолжить.',
+      plans:[['1 месяц',''],['3 месяца','Лучший выбор для новичка'],['1 год','Самый выгодный']],best:'Хит',per:'в мес.',
+      soon:'Оплата скоро будет подключена.',note:'Отменить можно в любой момент.',close:'Закрыть'},
+  en:{left:d=>`Free: ${d} day(s) left`,over:'Free trial has ended',t:'Keep driving with Varord',s:'Your 3 free days are over. Choose a plan to continue.',
+      plans:[['1 month',''],['3 months','Best for new drivers'],['1 year','Best value']],best:'Popular',per:'/mo',
+      soon:'Payments are coming soon.',note:'Cancel anytime.',close:'Close'}};
+function store(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}}
+let firstRun=+store('firstRun');if(!firstRun){firstRun=Date.now();store('firstRun',String(firstRun))}
+const paidUntil=()=>+store('paidUntil')||0;
+const daysLeft=()=>Math.max(0,Math.ceil((firstRun+TRIAL_DAYS*DAY-Date.now())/DAY));
+const hasAccess=()=>paidUntil()>Date.now()||daysLeft()>0;
+const money=(v,c)=>{const p=PRICES[c];const n=v>=1000?v.toLocaleString('ru-RU').replace(/ /g,' '):String(v);return c==='USD'?p.s+n:n+' '+p.s};
+function renderTrial(){
+  const e=$('trial'),t=PW[lang];if(paidUntil()>Date.now()){e.style.display='none';return}
+  e.textContent=daysLeft()>0?t.left(daysLeft()):t.over;e.style.display='inline-block';e.onclick=showPaywall}
+function showPaywall(){
+  const t=PW[lang],c=currency(),p=PRICES[c].p,box=$('plans');
+  $('pwT').textContent=t.t;$('pwS').textContent=daysLeft()>0?t.left(daysLeft()):t.s;$('pwNote').textContent=t.note;$('pwClose').textContent=t.close;
+  box.innerHTML='';
+  t.plans.forEach(([name,sub],i)=>{const b=document.createElement('button');b.className='plan'+(i===1?' best':'');
+    const per=i?`<small>${money(c==='USD'?(p[i]/(i===1?3:12)).toFixed(2):Math.round(p[i]/(i===1?3:12)),c)} ${t.per}</small>`:'';
+    b.innerHTML=`<div><b>${name}</b>${i===1?`<span class="tag">${t.best}</span>`:''}${sub?`<small>${sub}</small>`:''}</div><div style="text-align:right"><div class="pr">${money(p[i],c)}</div>${per}</div>`;
+    b.onclick=()=>toast(t.soon);box.appendChild(b)});
+  $('paywall').classList.add('show')}
+$('pwClose').onclick=()=>$('paywall').classList.remove('show');
+const _startNav=startNav;startNav=function(sim){if(!hasAccess()){showPaywall();return}_startNav(sim)};
+const _render=render;render=function(){_render();renderTrial()};
 
 // ---------- PWA ----------
 if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js');
