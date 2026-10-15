@@ -61,6 +61,23 @@
   .car{width:34px;height:34px}
   .sign{width:26px;height:26px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.5))}
   body.navigating .maplibregl-ctrl-group{display:none}
+  .modes{display:flex;gap:4px;background:#1e293b;border-radius:12px;padding:3px}
+  .modes button{flex:1;background:none;padding:8px;border-radius:9px;font-size:14px;font-weight:700;opacity:.7}
+  .modes button.on{background:#fff;color:#0f172a;opacity:1}
+  #places{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+  .chip{flex:none;background:#1e293b;border:1px solid #334155;border-radius:999px;padding:7px 12px;font-size:13px;white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis}
+  #routes{display:none;gap:8px;overflow-x:auto;width:100%;scrollbar-width:none;padding-bottom:2px}
+  .rcard{flex:1 0 160px;text-align:left;background:var(--panel);border:2px solid #334155;border-radius:14px;padding:10px 12px;font-size:13px}
+  .rcard.on{border-color:#3b82f6;background:#172554}
+  .rcard b{font-size:17px}.rcard small{display:block;opacity:.7;margin-top:3px}
+  .rt{display:inline-block;font-size:11px;font-weight:700;padding:2px 7px;border-radius:999px;margin:4px 4px 0 0}
+  .rt.easy{background:#16a34a}.rt.fast{background:#2563eb}
+  #eta{padding:8px 14px;font-size:14px;border-radius:999px}
+  #lanes{position:fixed;top:calc(96px + var(--safe-t));left:12px;display:none;gap:4px;padding:6px 8px;z-index:5}
+  #lanes svg{width:30px;height:30px;fill:#475569}#lanes svg.ok{fill:#fff}
+  body.navigating #badge{top:calc(150px + var(--safe-t))}
+  body.navigating .maplibregl-ctrl-attrib,body.navigating .langs{display:none}
+  body.navigating #speed{bottom:calc(150px + var(--safe-b))}
   #trial{background:#7c3aed;padding:5px 12px;border-radius:999px;font-size:12px;font-weight:700;z-index:4;cursor:pointer;display:none;white-space:nowrap}
   body.navigating #trial{display:none!important}
   #paywall{position:fixed;inset:0;background:rgba(2,6,23,.75);z-index:20;display:none;align-items:center;justify-content:center;padding:16px}
@@ -81,8 +98,10 @@
 <div id="map"></div>
 
 <div id="search" class="panel">
+  <div class="modes"><button id="mCar"></button><button id="mFoot"></button></div>
   <form id="sf"><input id="q" autocomplete="off"><button class="btn primary" id="sbtn"></button></form>
   <div class="hint" id="hint"></div>
+  <div id="places"></div>
   <div id="results"></div>
 </div>
 
@@ -90,6 +109,7 @@
   <svg id="nicon" viewBox="0 0 60 60"></svg>
   <div><div id="ndist">—</div><div id="ntext"></div></div>
 </div>
+<div id="lanes" class="panel"></div>
 
 <div id="badge"><svg id="bicon" viewBox="0 0 54 54"></svg><div><div id="bt"></div><div id="bs"></div><div id="bd"></div></div></div>
 <svg id="ar" viewBox="0 0 60 60"></svg>
@@ -104,12 +124,15 @@
 </div></div>
 
 <div id="bottom">
+  <div id="routes"></div>
+  <div id="eta" class="panel nav-only"></div>
   <div id="trial"></div>
   <div class="row">
     <button class="btn primary search-only" id="go" style="display:none"></button>
     <button class="btn search-only" id="sim" style="display:none"></button>
     <button class="btn nav-only" id="camBtn"></button>
     <button class="btn" id="voice"></button>
+    <button class="btn nav-only" id="share"></button>
     <button class="btn danger nav-only" id="stop"></button>
   </div>
   <div class="row">

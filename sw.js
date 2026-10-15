@@ -1,6 +1,6 @@
 // App shell cached on install; map tiles cached as you drive (cache-first),
 // so streets you have already seen keep working without internet.
-const SHELL='varord-shell-v2',TILES='varord-tiles-v1';
+const SHELL='varord-shell-v3',TILES='varord-tiles-v1';
 const ASSETS=['./','index.html','app.js','manifest.webmanifest','icon.svg','icon-192.png','icon-512.png',
   'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js','https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(SHELL).then(c=>c.addAll(ASSETS)));self.skipWaiting()});
